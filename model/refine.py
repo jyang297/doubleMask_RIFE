@@ -69,7 +69,7 @@ class Unet(nn.Module):
         self.up3 = deconv(4*c, c)
         self.conv = nn.Conv2d(c, 3, 3, 1, 1)
 
-    def forward(self, img0, img1, warped_img0, warped_img1, mask, flow, c0, c1):
+    def forward(self, img0, img1, warped_img0, warped_img1, mask, flow):
         s0 = self.down0(torch.cat((img0, img1, warped_img0, warped_img1, mask, flow), 1))
         s1 = self.down1(torch.cat((s0, c0[0], c1[0]), 1))
         s2 = self.down2(torch.cat((s1, c0[1], c1[1]), 1))

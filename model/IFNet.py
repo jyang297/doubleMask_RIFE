@@ -22,19 +22,17 @@ class IFBlock(nn.Module):
         super(IFBlock, self).__init__()
         self.conv0 = nn.Sequential(
             conv(in_planes, c//2, 3, 2, 1),
-            conv(c//2, c, 3, 2, 1),
+            conv(c//2, c, 3, 2, 1)
             )
-        self.convblock = nn.Sequential(
+        self.conv_block = nn.Sequential(
             conv(c, c),
             conv(c, c),
             conv(c, c),
             conv(c, c),
             conv(c, c),
-            conv(c, c),
-            conv(c, c),
-            conv(c, c),
+            conv(c, c)
         )
-        self.lastconv = nn.ConvTranspose2d(c, 5, 4, 2, 1)
+        self.last_conv = nn.ConvTranspose2d(c, c//2, 4, 2, 1)
 
     def forward(self, x, flow, scale):
         if scale != 1:
@@ -43,16 +41,19 @@ class IFBlock(nn.Module):
             flow = F.interpolate(flow, scale_factor = 1. / scale, mode="bilinear", align_corners=False) * 1. / scale
             x = torch.cat((x, flow), 1)
         x = self.conv0(x)
-        x = self.convblock(x) + x
-        tmp = self.lastconv(x)
+        x = self.conv_block(x) + x
+        tmp = self.last_conv(x)
         tmp = F.interpolate(tmp, scale_factor = scale * 2, mode="bilinear", align_corners=False)
         flow = tmp[:, :4] * scale * 2
         mask = tmp[:, 4:5]
+
+
+
         return flow, mask
     
 class IFNet(nn.Module):
     def __init__(self):
-        super(IFNet, self).__init__()
+        super().__init__()
         self.block0 = IFBlock(6, c=240)
         self.block1 = IFBlock(13+4, c=150)
         self.block2 = IFBlock(13+4, c=90)
