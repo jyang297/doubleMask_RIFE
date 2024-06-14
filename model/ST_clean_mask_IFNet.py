@@ -13,11 +13,11 @@ class Basic_Clean_Warp_IFBlock(nn.Module):
             conv(c, c)
         )
         self.conv0_0 = nn.Sequential(
-            conv(in_planes // 2, c // 4, 3, 2, 1),
+            conv(c // 2, c // 4, 3, 2, 1),
             conv(c // 4, c // 2, 3, 2, 1)
         )
         self.conv0_1 = nn.Sequential(
-            conv(in_planes // 2, c // 4, 3, 2, 1),
+            conv(c // 2, c // 4, 3, 2, 1),
             conv(c // 4, c // 2, 3, 2, 1)
         )
         self.conv_block = nn.Sequential(
@@ -30,21 +30,21 @@ class Basic_Clean_Warp_IFBlock(nn.Module):
         )
         self.last_conv = nn.ConvTranspose2d(c, c // 2, 4, 2, 1)
         self.conv_clean_mask_0 = nn.Sequential(
-            conv(c // 2 + c, c),
+            conv(c // 2 + 3, c),
             conv(c, c),
             conv(c, c),
             conv(c, c // 2),
             conv(c // 2, 1)
         )
-        self.conv_clean_mask_0 = nn.Sequential(
-            conv(c // 2 + c, c),
+        self.conv_clean_mask_1 = nn.Sequential(
+            conv(c // 2 + 3, c),
             conv(c, c),
             conv(c, c),
             conv(c, c // 2),
             conv(c // 2, 1)
         )
 
-    def forward(self, x, flow, scale):
+    def forward(self, x, flow, scale, img0, img1):
 
         if scale != 1:
             x = F.interpolate(x, scale_factor=1. / scale, mode="bilinear", align_corners=False)
@@ -63,8 +63,8 @@ class Basic_Clean_Warp_IFBlock(nn.Module):
         flow = tmp[:, :4] * scale * 2
         mask = tmp[:, 4:5]
 
-        mask_clean_mask_0 = self.conv_clean_mask_0(torch.cat([x, x_ds_img0], dim=1))
-        mask_clean_mask_1 = self.conv_clean_mask_1(torch.cat([x, x_ds_img1], dim=1))
+        mask_clean_mask_0 = self.conv_clean_mask_0(torch.cat([tmp, img0], dim=1))
+        mask_clean_mask_1 = self.conv_clean_mask_1(torch.cat([tmp, img1], dim=1))
 
         return flow, mask, mask_clean_mask_0, mask_clean_mask_1
 
@@ -227,14 +227,14 @@ class Clean_Warp_IFNet(nn.Module):
             if flow != None:
                 flow_d, mask_d, mask_clean_mask_0_d, mask_clean_mask_1_d = stu[i](
                     torch.cat((img0, img1, warped_img0, warped_img1, mask, mask_clean_mask_0, mask_clean_mask_1), 1), flow,
-                    scale=scale[i])
+                    scale=scale[i], img0=img0, img1=img1)
                 flow = flow + flow_d
                 mask = mask + mask_d
                 mask_clean_mask_0 = mask_clean_mask_0 + mask_clean_mask_0_d
                 mask_clean_mask_1 = mask_clean_mask_1 + mask_clean_mask_1_d
             else:
                 flow, mask, mask_clean_mask_0, mask_clean_mask_1 = stu[i](torch.cat((img0, img1), 1), None,
-                                                                          scale=scale[i])
+                                                                          scale=scale[i], img0=img0, img1=img1)
             mask_list.append(torch.sigmoid(mask))
             flow_list.append(flow)
 
@@ -245,13 +245,15 @@ class Clean_Warp_IFNet(nn.Module):
             merged_student = (warped_img0, warped_img1)
             merged.append(merged_student)
         if gt.shape[1] == 3:
-            flow_d, mask_d,  = self.block_tea(torch.cat((img0, img1, warped_img0, warped_img1, mask, gt, mask_clean_mask_0, mask_clean_mask_1), 1), flow,
-                                            scale[2])
+            flow_d, mask_d, mask_clean_mask_0_d, mask_clean_mask_1_d= self.block_tea(torch.cat((img0, img1, warped_img0, warped_img1, mask, gt, mask_clean_mask_0, mask_clean_mask_1), 1), flow,
+                                            scale[2], img0=img0, img1=img1)
             flow_teacher = flow + flow_d
             warped_img0_teacher = warp(img0, flow_teacher[:, :2])
             warped_img1_teacher = warp(img1, flow_teacher[:, 2:4])
-            warped_img0_teacher = mask_clean_mask_0 * warped_img0_teacher + (1 - mask_clean_mask_0) * img1  # Clean warped image0
-            warped_img1_teacher = mask_clean_mask_1 * warped_img1_teacher + (1 - mask_clean_mask_1) * img0  # Clean warped image1
+            mask_clean_mask_0_teacher = mask_clean_mask_0 + mask_clean_mask_0_d
+            mask_clean_mask_1_teacher = mask_clean_mask_1 + mask_clean_mask_1_d
+            warped_img0_teacher = mask_clean_mask_0_teacher * warped_img0_teacher + (1 - mask_clean_mask_0_teacher) * img1  # Clean warped image0
+            warped_img1_teacher = mask_clean_mask_1_teacher * warped_img1_teacher + (1 - mask_clean_mask_1_teacher) * img0  # Clean warped image1
 
             mask_teacher = torch.sigmoid(mask + mask_d)
             merged_teacher = warped_img0_teacher * mask_teacher + warped_img1_teacher * (1 - mask_teacher)

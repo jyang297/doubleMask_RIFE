@@ -6,8 +6,8 @@ import torch.optim as optim
 import itertools
 from model.warplayer import warp
 from torch.nn.parallel import DistributedDataParallel as DDP
-from model.IFNet import *
-from model.IFNet_m import *
+from model.ST_clean_mask_IFNet import Clean_Warp_IFNet as IFNet
+# from model.IFNet_m import *
 import torch.nn.functional as F
 from model.loss import *
 from model.laplacian import *

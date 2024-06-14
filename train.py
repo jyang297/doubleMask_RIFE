@@ -122,11 +122,11 @@ def evaluate(model, val_data, nr_eval, local_rank, writer_val):
         merged_img = (merged_img.permute(0, 2, 3, 1).cpu().numpy() * 255).astype('uint8')
         flow0 = info['flow'].permute(0, 2, 3, 1).cpu().numpy()
         flow1 = info['flow_tea'].permute(0, 2, 3, 1).cpu().numpy()
-        if i == 0 and local_rank == 0:
-            for j in range(10):
-                imgs = np.concatenate((merged_img[j], pred[j], gt[j]), 1)[:, :, ::-1]
-                writer_val.add_image(str(j) + '/img', imgs.copy(), nr_eval, dataformats='HWC')
-                writer_val.add_image(str(j) + '/flow', flow2rgb(flow0[j][:, :, ::-1]), nr_eval, dataformats='HWC')
+        # if i == 0 and local_rank == 0:
+        #     for j in range(10):
+        #         imgs = np.concatenate((merged_img[j], pred[j], gt[j]), 1)[:, :, ::-1]
+        #         writer_val.add_image(str(j) + '/img', imgs.copy(), nr_eval, dataformats='HWC')
+        #         writer_val.add_image(str(j) + '/flow', flow2rgb(flow0[j][:, :, ::-1]), nr_eval, dataformats='HWC')
     
     eval_time_interval = time.time() - time_stamp
 
@@ -134,13 +134,14 @@ def evaluate(model, val_data, nr_eval, local_rank, writer_val):
         return
     writer_val.add_scalar('psnr', np.array(psnr_list).mean(), nr_eval)
     writer_val.add_scalar('psnr_teacher', np.array(psnr_list_teacher).mean(), nr_eval)
+    print("evaluated......<<<")
         
 if __name__ == "__main__":    
     parser = argparse.ArgumentParser()
     parser.add_argument('--epoch', default=300, type=int)
     parser.add_argument('--batch_size', default=16, type=int, help='minibatch size')
     parser.add_argument('--local_rank', default=0, type=int, help='local rank')
-    parser.add_argument('--world_size', default=4, type=int, help='world size')
+    parser.add_argument('--world_size', default=1, type=int, help='world size')
     args = parser.parse_args()
     torch.distributed.init_process_group(backend="nccl", world_size=args.world_size)
     torch.cuda.set_device(args.local_rank)
